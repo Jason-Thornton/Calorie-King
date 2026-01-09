@@ -39,6 +39,40 @@
             margin: 0 auto;
         }
 
+        .nav-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px 0;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 10px 20px;
+            font-size: 0.9em;
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .user-info {
+            color: var(--text-muted);
+            font-size: 0.9em;
+        }
+
         header {
             text-align: center;
             margin-bottom: 40px;
@@ -215,6 +249,75 @@
             box-shadow: 0 2px 10px var(--shadow);
         }
 
+        .food-item.editing {
+            background: var(--surface);
+            border-color: var(--accent);
+        }
+
+        .food-item input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            font-size: 1em;
+            margin-bottom: 8px;
+        }
+
+        .food-item input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.85em;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e76f51;
+            color: white;
+        }
+
+        .btn-edit {
+            background: var(--primary);
+            color: white;
+        }
+
+        .edit-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+
+        .add-item-btn {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
         .food-name {
             font-weight: 600;
             font-size: 1.2em;
@@ -313,6 +416,17 @@
 </head>
 <body>
     <div class="container">
+        <div class="nav-bar">
+            <div class="user-info" id="userInfo">
+                <span id="welcomeText"></span>
+            </div>
+            <div class="nav-links" id="navLinks">
+                <a href="/login-page" id="loginLink" style="text-decoration: none;">
+                    <button class="btn btn-small btn-secondary">Login</button>
+                </a>
+            </div>
+        </div>
+
         <header>
             <h1>🥗 Meal Analyzer</h1>
             <p class="subtitle">Snap a photo, get instant nutrition info</p>
@@ -346,8 +460,23 @@
                 <div class="number" id="totalCalories">0</div>
                 <div class="label">Total Calories</div>
             </div>
+
+            <div class="edit-controls" id="editControls">
+                <button class="btn-edit btn-sm" id="editToggleBtn" onclick="toggleEditMode()">Edit Items</button>
+                <button class="add-item-btn" id="addItemBtn" onclick="addNewItem()" style="display: none;">+ Add Item</button>
+            </div>
+
             <div id="foodList"></div>
-            <button class="btn btn-secondary" onclick="resetApp()" style="width: 100%;">
+
+            <div id="saveSection" style="display: none; margin-top: 20px; padding: 20px; background: var(--surface); border-radius: 12px; border: 2px solid var(--primary);">
+                <h3 style="margin-bottom: 15px; color: var(--primary);">Save This Meal</h3>
+                <input type="text" id="mealName" placeholder="Give this meal a name (e.g., Breakfast, Lunch)" style="width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; margin-bottom: 15px; font-size: 1em;">
+                <button class="btn" onclick="saveMeal()" style="width: 100%;">
+                    Save to History
+                </button>
+            </div>
+
+            <button class="btn btn-secondary" onclick="resetApp()" style="width: 100%; margin-top: 15px;">
                 Analyze Another Meal
             </button>
         </div>
@@ -359,6 +488,43 @@
 
     <script>
         let selectedImage = null;
+        let currentUser = null;
+        let lastAnalysisData = null;
+        let isEditMode = false;
+        let foodItems = [];
+
+        // Check if user is logged in
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/current-user');
+                const data = await response.json();
+
+                if (data.authenticated) {
+                    currentUser = data;
+                    document.getElementById('welcomeText').textContent = `Welcome, ${data.username}!`;
+                    document.getElementById('navLinks').innerHTML = `
+                        <a href="/history" style="text-decoration: none;">
+                            <button class="btn btn-small">Meal History</button>
+                        </a>
+                        <button class="btn btn-small btn-secondary" onclick="handleLogout()">Logout</button>
+                    `;
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.reload();
+            } catch (error) {
+                console.error('Logout failed:', error);
+            }
+        }
+
+        // Call on page load
+        checkAuth();
 
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -411,10 +577,35 @@
         });
 
         function displayResults(data) {
-            document.getElementById('totalCalories').textContent = data.total_calories;
-            
-            const foodListHTML = data.foods.map(food => `
-                <div class="food-item">
+            lastAnalysisData = data;
+            foodItems = [...data.foods]; // Create a copy
+            isEditMode = false;
+            renderFoodList();
+            document.getElementById('results').classList.add('active');
+            document.getElementById('editToggleBtn').textContent = 'Edit Items';
+            document.getElementById('addItemBtn').style.display = 'none';
+
+            // Show save section if user is logged in
+            if (currentUser) {
+                document.getElementById('saveSection').style.display = 'block';
+                document.getElementById('mealName').value = ''; // Clear previous name
+            }
+        }
+
+        function renderFoodList() {
+            const totalCalories = foodItems.reduce((sum, food) => sum + parseInt(food.calories || 0), 0);
+            document.getElementById('totalCalories').textContent = totalCalories;
+
+            if (isEditMode) {
+                renderEditMode();
+            } else {
+                renderViewMode();
+            }
+        }
+
+        function renderViewMode() {
+            const foodListHTML = foodItems.map((food, index) => `
+                <div class="food-item" data-index="${index}">
                     <div class="food-name">${food.name}</div>
                     <div class="food-details">
                         <span>📏 ${food.portion}</span>
@@ -422,17 +613,167 @@
                     </div>
                 </div>
             `).join('');
-            
+
             document.getElementById('foodList').innerHTML = foodListHTML;
-            document.getElementById('results').classList.add('active');
+        }
+
+        function renderEditMode() {
+            const foodListHTML = foodItems.map((food, index) => `
+                <div class="food-item editing" data-index="${index}">
+                    <input type="text" value="${food.name}" placeholder="Food name" id="food-name-${index}"
+                           onchange="updateFoodItem(${index}, 'name', this.value)">
+                    <input type="text" value="${food.portion}" placeholder="Portion (e.g., 1 cup)" id="food-portion-${index}"
+                           onchange="updateFoodItem(${index}, 'portion', this.value)">
+                    <input type="number" value="${food.calories}" placeholder="Calories" id="food-calories-${index}"
+                           onchange="updateFoodItem(${index}, 'calories', this.value)">
+                    <div class="item-actions">
+                        <button class="btn-sm btn-success" onclick="reanalyzeItem(${index})" id="reanalyze-${index}">
+                            🔄 Re-analyze
+                        </button>
+                        <button class="btn-sm btn-danger" onclick="removeItem(${index})">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('foodList').innerHTML = foodListHTML;
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('editToggleBtn');
+            const addBtn = document.getElementById('addItemBtn');
+
+            if (isEditMode) {
+                btn.textContent = 'Done Editing';
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-edit');
+                addBtn.style.display = 'block';
+            } else {
+                btn.textContent = 'Edit Items';
+                btn.classList.add('btn-edit');
+                btn.classList.remove('btn-success');
+                addBtn.style.display = 'none';
+            }
+
+            renderFoodList();
+        }
+
+        function updateFoodItem(index, field, value) {
+            foodItems[index][field] = value;
+            renderFoodList();
+        }
+
+        function removeItem(index) {
+            if (confirm('Remove this item?')) {
+                foodItems.splice(index, 1);
+                renderFoodList();
+            }
+        }
+
+        function addNewItem() {
+            foodItems.push({
+                name: 'New Food Item',
+                portion: '1 serving',
+                calories: 0
+            });
+            renderFoodList();
+        }
+
+        async function reanalyzeItem(index) {
+            const foodName = document.getElementById(`food-name-${index}`).value;
+
+            if (!foodName || foodName.trim() === '') {
+                alert('Please enter a food name first');
+                return;
+            }
+
+            const btn = document.getElementById(`reanalyze-${index}`);
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Analyzing...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/reanalyze-item', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ food_name: foodName })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('Failed to re-analyze: ' + data.error);
+                } else {
+                    // Update the food item with AI results
+                    foodItems[index].portion = data.portion;
+                    foodItems[index].calories = parseInt(data.calories);
+
+                    // Update the input fields
+                    document.getElementById(`food-portion-${index}`).value = data.portion;
+                    document.getElementById(`food-calories-${index}`).value = data.calories;
+
+                    // Recalculate total
+                    renderFoodList();
+                }
+            } catch (error) {
+                console.error('Error re-analyzing item:', error);
+                alert('Error re-analyzing item. Please try again.');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function saveMeal() {
+            if (!currentUser || !selectedImage || foodItems.length === 0) {
+                alert('Please log in and analyze a meal first');
+                return;
+            }
+
+            const mealName = document.getElementById('mealName').value || 'Unnamed Meal';
+            const totalCalories = foodItems.reduce((sum, food) => sum + parseInt(food.calories || 0), 0);
+
+            try {
+                const formData = new FormData();
+                formData.append('image', selectedImage);
+                formData.append('meal_name', mealName);
+                formData.append('save_meal', 'true');
+                formData.append('foods_data', JSON.stringify(foodItems));
+                formData.append('total_calories', totalCalories);
+
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.saved) {
+                    alert('Meal saved successfully!');
+                    document.getElementById('saveSection').style.display = 'none';
+                } else {
+                    alert('Failed to save meal');
+                }
+            } catch (error) {
+                console.error('Error saving meal:', error);
+                alert('Error saving meal. Please try again.');
+            }
         }
 
         function resetApp() {
             selectedImage = null;
+            lastAnalysisData = null;
+            foodItems = [];
+            isEditMode = false;
             document.getElementById('fileInput').value = '';
             document.getElementById('previewContainer').style.display = 'none';
             document.getElementById('results').classList.remove('active');
             document.getElementById('error').classList.remove('active');
+            document.getElementById('saveSection').style.display = 'none';
+            document.getElementById('editToggleBtn').textContent = 'Edit Items';
+            document.getElementById('editToggleBtn').classList.add('btn-edit');
+            document.getElementById('editToggleBtn').classList.remove('btn-success');
+            document.getElementById('addItemBtn').style.display = 'none';
         }
     </script>
 </body>
