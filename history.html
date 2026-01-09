@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal History - Calorie King</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            max-width: 1200px;
+            margin: 0 auto 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 32px;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .stats {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .meals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .meal-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s;
+        }
+
+        .meal-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .meal-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #f0f0f0;
+        }
+
+        .meal-content {
+            padding: 20px;
+        }
+
+        .meal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .meal-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .meal-date {
+            color: #999;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .meal-calories {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .calories-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .food-list {
+            margin: 15px 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .food-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+
+        .food-item:last-child {
+            border-bottom: none;
+        }
+
+        .food-name {
+            color: #333;
+            flex: 1;
+        }
+
+        .food-portion {
+            color: #666;
+            margin: 0 10px;
+        }
+
+        .food-calories {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .delete-btn {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .delete-btn:hover {
+            background: #d32f2f;
+        }
+
+        .empty-state {
+            background: white;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .empty-state h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Meal History</h1>
+        <div class="header-buttons">
+            <a href="/" class="btn btn-primary">Analyze New Meal</a>
+            <button onclick="handleLogout()" class="btn btn-secondary">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat">
+                <div class="stat-value" id="total-meals">0</div>
+                <div class="stat-label">Total Meals</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="avg-calories">0</div>
+                <div class="stat-label">Avg Calories/Meal</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="total-calories">0</div>
+                <div class="stat-label">Total Calories Tracked</div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">Loading your meals...</div>
+        <div id="meals-container" class="meals-grid" style="display: none;"></div>
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <h2>No meals yet!</h2>
+            <p>Start analyzing meals to build your history</p>
+            <a href="/" class="btn btn-primary">Analyze Your First Meal</a>
+        </div>
+    </div>
+
+    <script>
+        async function loadMeals() {
+            try {
+                const response = await fetch('/api/meals');
+                const data = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.meals && data.meals.length > 0) {
+                    displayMeals(data.meals);
+                    displayStats(data.meals);
+                } else {
+                    document.getElementById('empty-state').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading meals:', error);
+                document.getElementById('loading').textContent = 'Error loading meals. Please try again.';
+            }
+        }
+
+        function displayStats(meals) {
+            const totalMeals = meals.length;
+            const totalCalories = meals.reduce((sum, meal) => sum + meal.total_calories, 0);
+            const avgCalories = Math.round(totalCalories / totalMeals);
+
+            document.getElementById('total-meals').textContent = totalMeals;
+            document.getElementById('avg-calories').textContent = avgCalories;
+            document.getElementById('total-calories').textContent = totalCalories.toLocaleString();
+            document.getElementById('stats').style.display = 'flex';
+        }
+
+        function displayMeals(meals) {
+            const container = document.getElementById('meals-container');
+            container.style.display = 'grid';
+
+            container.innerHTML = meals.map(meal => `
+                <div class="meal-card">
+                    ${meal.image_data ? `<img src="data:image/jpeg;base64,${meal.image_data}" class="meal-image" alt="${meal.meal_name}">` : '<div class="meal-image"></div>'}
+                    <div class="meal-content">
+                        <div class="meal-header">
+                            <div>
+                                <div class="meal-name">${meal.meal_name || 'Unnamed Meal'}</div>
+                                <div class="meal-date">${formatDate(meal.created_at)}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div class="meal-calories">${meal.total_calories}</div>
+                                <div class="calories-label">calories</div>
+                            </div>
+                        </div>
+                        <ul class="food-list">
+                            ${meal.foods.map(food => `
+                                <li class="food-item">
+                                    <span class="food-name">${food.name}</span>
+                                    <span class="food-portion">${food.portion}</span>
+                                    <span class="food-calories">${food.calories} cal</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                        <button class="delete-btn" onclick="deleteMeal(${meal.id})">Delete Meal</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${diffDays} days ago`;
+
+            return date.toLocaleDateString();
+        }
+
+        async function deleteMeal(mealId) {
+            if (!confirm('Are you sure you want to delete this meal?')) return;
+
+            try {
+                const response = await fetch(`/api/meals/${mealId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadMeals(); // Reload the page
+                } else {
+                    alert('Failed to delete meal');
+                }
+            } catch (error) {
+                alert('Error deleting meal');
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login-page';
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
+
+        // Load meals on page load
+        loadMeals();
+    </script>
+</body>
+</html>
